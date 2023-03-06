@@ -15,7 +15,7 @@ def clean_lines(lines):
     cleaned_lines = []
     for line in lines:
         l = line.strip().split()
-        if len(l) == 1:
+        if len(l) == 2:
             cleaned_lines.append(line)
         else:
             pair = l[0]
@@ -77,72 +77,6 @@ def my_pad_sequences(sequences, pad_tok, max_sent_length, nlevels=1):
     return np.array(sequence_padded), sequence_length
 
 
-def parse_sent(raw_data, mode='chemprot'):
-    raw_data = clean_lines(raw_data)
-    all_words = []
-    all_poses = []
-    all_synsets = []
-    # all_relations = []
-    all_labels = []
-    all_identities = []
-    all_triples = []
-    pmid = ''
-    for line in raw_data:
-        l = line.strip().split()
-        if len(l) == 1:
-            pmid = l[0]
-        else:
-            pair = l[0]
-            label = l[1]
-            if label:
-                if mode == 'cid':
-                    chem, dis = pair.split('_')
-                    all_triples.append([chem, dis])
-
-                joint_sdp = ' '.join(l[2:])
-                sdps = joint_sdp.split("-PUNC-")
-                for sdp in sdps:
-                    # S xuoi
-                    nodes = sdp.split()
-                    words = []
-                    poses = []
-                    synsets = []
-                    # relations = []
-                    for idx, node in enumerate(nodes):
-                        node = node.split('|')
-                        for idx, _node in enumerate(node):
-                            word = constants.UNK if _node == '' else _node
-                            if idx == 0:
-                                w, p, s = word.split('\\')
-                                p = 'NN' if p == '' else p
-                                s = str(wn.synsets('entity')[0].offset()) if s == '' else s
-                                _w, position = w.rsplit('_', 1)
-                                # _w = w
-                                words.append(_w)
-                                poses.append(p)
-                                synsets.append(s)
-                            else:
-                                w = word.split('\\')[0]
-                    sent = ' '.join(words)
-                    re_e1 = re.compile(r'(<e1>)(.*)(<\/e1>)', re.U | re.I)
-                    re_e2 = re.compile(r'(<e2>)(.*)(<\/e2>)', re.U | re.I)
-                    e1 = re.search(re_e1, sent).groups()[1]
-                    e2 = re.search(re_e2, sent).groups()[1]
-                    if mode == 'chemprot':
-                        all_triples.append([e1, e2])
-
-                    all_words.append(words)
-                    all_poses.append(poses)
-                    all_synsets.append(synsets)
-                    # all_relations.append(relations)
-                    all_labels.append([label])
-                    all_identities.append((pmid, pair))
-            else:
-                print(l)
-
-    return all_words, all_poses, all_synsets, all_labels, all_identities, all_triples
-
-
 def parse_words(raw_data):
     raw_data = clean_lines(raw_data)
     all_words = []
@@ -154,10 +88,13 @@ def parse_words(raw_data):
     all_identities = []
     all_triples = []
     pmid = ''
+    all_lens = []
     for line in raw_data:
         l = line.strip().split()
-        if len(l) == 1:
+        if len(l) == 2:
             pmid = l[0]
+            doc_len = l[1]
+            all_lens.append([doc_len])
         else:
             pair = l[0]
             label = l[1]
@@ -209,15 +146,14 @@ def parse_words(raw_data):
                 print(l)
 
     # return all_words, all_poses, all_synsets, all_relations, all_labels, all_identities, all_triples, all_positions
-    return all_words, all_poses, all_synsets, all_labels, all_identities, all_triples, all_positions
+    return all_words, all_poses, all_synsets, all_labels, all_identities, all_triples, all_lens
 
 
 class Dataset:
-    def __init__(self, data_name, sdp_name, vocab_words=None, vocab_poses=None, vocab_synset=None, vocab_rels=None,
+    def __init__(self, sdp_name, vocab_words=None, vocab_poses=None, vocab_synset=None, vocab_rels=None,
                  vocab_chems=None,
                  vocab_dis=None,
                  process_data='cid'):
-        self.data_name = data_name
         self.sdp_name = sdp_name
 
         self.vocab_words = vocab_words
@@ -229,32 +165,26 @@ class Dataset:
         self.vocab_dis = vocab_dis
 
         if process_data:
-            self._process_data(process_data)
+            self._process_data()
             self._clean_data()
 
-    def get_padded_data(self, mode='cid', shuffled=True):
-        self._pad_data(mode=mode, shuffled=shuffled)
+    def get_padded_data(self, shuffled=True):
+        self._pad_data(shuffled=shuffled)
 
     def _clean_data(self):
         del self.vocab_poses
         del self.vocab_synsets
         del self.vocab_rels
 
-    def _process_data(self, process_data):
-        with open(self.data_name, 'r', encoding='utf-8') as f:
-            raw_data = f.readlines()
+    def _process_data(self):
         with open(self.sdp_name, 'r', encoding='utf-8') as f1:
             raw_sdp = f1.readlines()
-        data_word_relations, data_pos, data_synsets, data_y, self.identities, data_triples, data_positions = \
+        data_words, data_pos, data_synsets, data_y, self.identities, data_triples, data_lens = \
             parse_words(raw_sdp)
         # data_words, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
         #     raw_data)
-        data_words, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
-            raw_data, mode=process_data)
 
         words = []
-        # positions_1 = []
-        # positions_2 = []
         head_mask = []
         e1_mask = []
         e2_mask = []
@@ -265,19 +195,9 @@ class Dataset:
         all_ents = []
         # max_len_word = 0
 
-        # for i in range(len(data_positions)):
-        #     position_1, position_2 = [], []
-        #     e1 = data_positions[i][0]
-        #     e2 = data_positions[i][-1]
-        #     for po in data_positions[i]:
-        #         position_1.append((po - e1 + constants.MAX_LENGTH) // 5 + 1)
-        #         position_2.append((po - e2 + constants.MAX_LENGTH) // 5 + 1)
-        #     positions_1.append(position_1)
-        #     positions_2.append(position_2)
-
         for tokens in data_words:
-            # tokens[0] = '<e1>' + tokens[0] + '</e1>'
-            # tokens[-1] = '<e2>' + tokens[-1] + '</e2>'
+            tokens[0] = '<e1>' + tokens[0] + '</e1>'
+            tokens[-1] = '<e2>' + tokens[-1] + '</e2>'
             sdp_sent = ' '.join(tokens)
             token_ids = constants.tokenizer.encode(sdp_sent)
             # if max_len_word < len(token_ids):
@@ -337,19 +257,13 @@ class Dataset:
             poses.append(ps)
             synsets.append(ss)
 
-            if process_data == 'CID':
-                lb = constants.ALL_LABELS_CID.index(data_y[i][0])
-            elif process_data == 'DDI':
-                lb = constants.ALL_LABELS_DDI.index(data_y[i][0])
-            else:
-                lb = constants.ALL_LABELS_CHEMPROT.index(data_y[i][0])
-                # lb = np.zeros(len(constants.ALL_LABELS_CHEMPROT))
+            lb = constants.ALL_LABELS.index(data_y[i][0])
             labels.append(lb)
 
-        for i in range(len(data_word_relations)):
+        for i in range(len(data_words)):
             rs = []
-            for r in data_word_relations[i]:
-                if data_word_relations[i].index(r) % 2 == 0:
+            for r in data_words[i]:
+                if data_words[i].index(r) % 2 == 0:
                     if r in self.vocab_words:
                         r_id = self.vocab_words[r]
                     else:
@@ -392,21 +306,13 @@ class Dataset:
 
         return data_triples
 
-    def _pad_data(self, mode='cid', shuffled=True):
+    def _pad_data(self, shuffled=True):
         if shuffled:
             word_shuffled, head_shuffle, e1_shuffle, e2_shuffle, pos_shuffled, synset_shuffled, relation_shuffled, \
             label_shuffled, triple_shuffled = shuffle(
                 self.words, self.head_mask, self.e1_mask, self.e2_mask, self.poses,
                 self.synsets, self.relations, self.labels, self.triples)
-            # word_shuffled, head_shuffle, e1_shuffle, e2_shuffle, pos_shuffled, synset_shuffled, \
-            # label_shuffled, triple_shuffled = shuffle(
-            #     self.words, self.head_mask, self.e1_mask, self.e2_mask, self.poses,
-            #     self.synsets, self.labels, self.triples)
         else:
-            # word_shuffled, head_shuffle, e1_shuffle, e2_shuffle, pos_shuffled, synset_shuffled, \
-            # label_shuffled, triple_shuffled = \
-            #     self.words, self.head_mask, self.e1_mask, self.e2_mask, self.poses, \
-            #     self.synsets, self.labels, self.triples
             word_shuffled, head_shuffle, e1_shuffle, e2_shuffle, pos_shuffled, synset_shuffled, relation_shuffled, \
             label_shuffled, triple_shuffled = \
                 self.words, self.head_mask, self.e1_mask, self.e2_mask, self.poses, \
@@ -416,14 +322,9 @@ class Dataset:
         self.poses = tf.constant(pad_sequences(pos_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
         self.synsets = tf.constant(pad_sequences(synset_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
         self.relations = tf.constant(pad_sequences(relation_shuffled, maxlen=36, padding='post'))
-        if mode == 'cid':
-            num_classes = len(constants.ALL_LABELS_CID)
-        else:
-            num_classes = len(constants.ALL_LABELS_CHEMPROT)
+        num_classes = len(constants.ALL_LABELS)
         self.labels = tf.keras.utils.to_categorical(label_shuffled, num_classes=num_classes)
         # self.labels = tf.constant(label_shuffled, dtype='float32')
-        # self.positions_1 = tf.constant(pad_sequences(positions_1_shuffle, maxlen=constants.MAX_LENGTH, padding='post'))
-        # self.positions_2 = tf.constant(pad_sequences(positions_2_shuffle, maxlen=constants.MAX_LENGTH, padding='post'))
         self.triples = tf.constant(triple_shuffled, dtype='int32')
         self.head_mask = tf.constant(head_shuffle, dtype='float32')
         self.e1_mask = tf.constant(e1_shuffle, dtype='float32')

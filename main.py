@@ -5,7 +5,6 @@ import pickle
 import tensorflow as tf
 from evaluate.bc5 import evaluate_bc5
 from gmlp.model.bert_gmlp import BertgMLPModel
-from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
 import numpy as np
 
 
@@ -22,31 +21,22 @@ def main():
         chem_vocab = make_triple_vocab(constants.DATA + 'chemical2id.txt')
         dis_vocab = make_triple_vocab(constants.DATA + 'disease2id.txt')
 
-        train = Dataset(constants.RAW_DATA + 'sentence_data_acentors.train.txt',
-                        constants.RAW_DATA + 'sdp_data_acentors_bert.train.txt',
+        train = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.train.txt',
                         vocab_words=vocab_words,
                         vocab_poses=vocab_poses,
-                        vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab,
-                        vocab_dis=dis_vocab,
-                        process_data='cid')
+                        vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab)
         pickle.dump(train, open(constants.PICKLE_DATA + 'train.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
-
-        dev = Dataset(constants.RAW_DATA + 'sentence_data_acentors.dev.txt',
-                      constants.RAW_DATA + 'sdp_data_acentors_bert.dev.txt',
+        #
+        dev = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt',
                       vocab_words=vocab_words,
                       vocab_poses=vocab_poses,
-                      vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab,
-                      vocab_dis=dis_vocab,
-                      process_data='cid')
+                      vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
         pickle.dump(dev, open(constants.PICKLE_DATA + 'dev.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
-        test = Dataset(constants.RAW_DATA + 'sentence_data_acentors.test.txt',
-                       constants.RAW_DATA + 'sdp_data_acentors_bert.test.txt',
+        test = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.test.txt',
                        vocab_words=vocab_words,
                        vocab_poses=vocab_poses,
-                       vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab,
-                       vocab_dis=dis_vocab,
-                       process_data='cid')
+                       vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
         pickle.dump(test, open(constants.PICKLE_DATA + 'test.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
     else:
@@ -76,9 +66,9 @@ def main():
         train.__dict__[prop].extend(dev.__dict__[prop][:n_sample])
         validation.__dict__[prop] = dev.__dict__[prop][n_sample:]
 
-    train.get_padded_data(mode='chemprot')
-    validation.get_padded_data(mode='chemprot')
-    test.get_padded_data(mode='chemprot', shuffled=False)
+    train.get_padded_data()
+    validation.get_padded_data()
+    test.get_padded_data(shuffled=False)
 
     print("Train shape: ", len(train.words))
     print("Test shape: ", len(test.words))
@@ -96,7 +86,7 @@ def main():
 
     with tf.device("/GPU:0"):
         model = BertgMLPModel(base_encoder=constants.encoder, depth=6, chem_emb=chem_emb, dis_emb=dis_emb,
-                              wordnet_emb=wn_emb, cdr_emb=word_emb, rel_emb=rel_emb, mode=mode)
+                              wordnet_emb=wn_emb, cdr_emb=word_emb, rel_emb=rel_emb)
         # model = BertCNNModel(base_encoder=constants.encoder, chem_emb=chem_emb, dis_emb=dis_emb,
         #                      wordnet_emb=wn_emb, cdr_emb=word_emb, rel_emb=rel_emb)
         model.build(train, validation)

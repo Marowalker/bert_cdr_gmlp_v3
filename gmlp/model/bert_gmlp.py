@@ -26,7 +26,7 @@ def f1_macro(y_true, y_pred):
 
 
 class BertgMLPModel:
-    def __init__(self, base_encoder, depth, chem_emb, dis_emb, wordnet_emb, cdr_emb, rel_emb, mode='cid'):
+    def __init__(self, base_encoder, depth, chem_emb, dis_emb, wordnet_emb, cdr_emb, rel_emb):
         if not os.path.exists(TRAINED_MODELS):
             os.makedirs(TRAINED_MODELS)
 
@@ -37,16 +37,13 @@ class BertgMLPModel:
         self.cdr_emb = tf.concat([cdr_emb, rel_emb], axis=0)
 
         self.max_length = constants.MAX_LENGTH
-        self.num_of_words = countVocab(mode=mode)
-        self.num_of_pos = countNumPos(mode=mode)
-        self.num_of_synset = countNumSynset(mode=mode)
-        self.num_of_depend = countNumRelation(mode=mode)
-        if mode == 'cid':
-            self.num_of_class = len(constants.ALL_LABELS_CID)
-        else:
-            self.num_of_class = len(constants.ALL_LABELS_CHEMPROT)
+        self.num_of_words = countVocab()
+        self.num_of_pos = countNumPos()
+        self.num_of_synset = countNumSynset()
+        self.num_of_depend = countNumRelation()
+        self.num_of_class = len(constants.ALL_LABELS)
+
         self.trained_models = constants.TRAINED_MODELS
-        self.mode = mode
 
     def _add_inputs(self):
         self.input_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
@@ -78,7 +75,7 @@ class BertgMLPModel:
         #     self.position_2_ids)
         # position_emb = tf.concat([positions_1_emb, positions_2_emb], axis=-1)
 
-        relation_emb = tf.keras.layers.Embedding(self.num_of_words + self.num_of_depend + 3, 16,
+        relation_emb = tf.keras.layers.Embedding(self.num_of_words + self.num_of_depend, 16,
                                                  weights=[self.cdr_emb], trainable=False)(self.relation_ids)
 
         word_x = gMLP(dim=constants.INPUT_W2V_DIM, depth=self.depth, seq_len=self.max_length,
@@ -129,10 +126,8 @@ class BertgMLPModel:
         out = tf.keras.layers.Dropout(DROPOUT)(x)
         out = tf.keras.layers.Dense(128)(out)
         out = tf.keras.layers.Dense(128)(out)
-        if self.mode == 'cid':
-            out = tf.keras.layers.Dense(len(constants.ALL_LABELS_CID), activation='softmax')(out)
-        else:
-            out = tf.keras.layers.Dense(len(constants.ALL_LABELS_CHEMPROT), activation='softmax')(out)
+        out = tf.keras.layers.Dense(len(constants.ALL_LABELS), activation='softmax')(out)
+
         return out
 
     @staticmethod
@@ -146,21 +141,15 @@ class BertgMLPModel:
             # inputs=[self.input_ids, self.head_mask, self.e1_mask, self.e2_mask, self.pos_ids, self.synset_ids,
             #         self.triple_ids],
             outputs=self._bert_layer())
-        self.optimizer = tf.keras.optimizers.Adam(lr=1e-5)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5)
 
-        # self.model.compile(optimizer=self.optimizer, loss='binary_crossentropy', metrics=['accuracy',
-        #                                                                                   F1Score(num_classes=2,
-        #                                                                                           average="macro",
-        #                                                                                           threshold=0.5)])
-        if self.mode == 'cid':
-            self.model.compile(optimizer=self.optimizer,
-                               loss=tf.keras.losses.BinaryCrossentropy(),
-                               metrics=['accuracy', self.f1_score])
-        else:
-            self.model.compile(optimizer=self.optimizer,
-                               loss=tf.keras.losses.CategoricalCrossentropy(),
-                               metrics=['accuracy', F1Score(num_classes=len(constants.ALL_LABELS_CHEMPROT),
-                                                            average="weighted")])
+        self.model.compile(optimizer=self.optimizer, loss='binary_crossentropy', metrics=['accuracy',
+                                                                                          F1Score(num_classes=2,
+                                                                                                  average="weighted",
+                                                                                                  threshold=0.5)])
+        # self.model.compile(optimizer=self.optimizer,
+        #                    loss=tf.keras.losses.BinaryCrossentropy(),
+        #                    metrics=['accuracy', self.f1_score])
         print(self.model.summary())
 
     def _train(self, train_data, val_data):
