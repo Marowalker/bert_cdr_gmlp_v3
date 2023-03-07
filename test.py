@@ -16,6 +16,14 @@ vocab_words = load_vocab(constants.ALL_WORDS)
 chem_vocab = make_triple_vocab(constants.DATA + 'chemical2id.txt')
 dis_vocab = make_triple_vocab(constants.DATA + 'disease2id.txt')
 
+with open(constants.RAW_DATA + 'sdp_data_acentors_full.train.txt') as f:
+    lines = f.readlines()
+
+# all_words, all_poses, all_synsets, all_relations, all_labels, all_identities, all_triples, all_lens, all_positions = \
+#     parse_words(raw_data=lines)
+# for po, le in zip(all_words, all_lens):
+#     print(po, le)
+
 
 train = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.train.txt',
                 vocab_words=vocab_words,
@@ -45,7 +53,7 @@ props = ['words', 'head_mask', 'e1_mask', 'e2_mask', 'relations', 'labels', 'pos
 for prop in props:
     train.__dict__[prop].extend(dev.__dict__[prop][:n_sample])
     validation.__dict__[prop] = dev.__dict__[prop][n_sample:]
-#
+
 # len_train = max([len(w) for w in train.words])
 # len_val = max([len(w) for w in validation.words])
 # len_test = max([len(w) for w in test.words])
@@ -54,8 +62,8 @@ for prop in props:
 
 train.get_padded_data()
 validation.get_padded_data()
-# #
-print(train.triples)
+
+print(train.e1_mask)
 
 # wn_emb = get_trimmed_w2v_vectors('data/w2v_model/wordnet_embeddings.npz')
 #

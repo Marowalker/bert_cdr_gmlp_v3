@@ -82,19 +82,19 @@ def parse_words(raw_data):
     all_words = []
     all_poses = []
     all_synsets = []
-    # all_relations = []
+    all_relations = []
     all_positions = []
     all_labels = []
     all_identities = []
     all_triples = []
     pmid = ''
     all_lens = []
+    doc_len = 0
     for line in raw_data:
         l = line.strip().split()
         if len(l) == 2:
             pmid = l[0]
             doc_len = l[1]
-            all_lens.append([doc_len])
         else:
             pair = l[0]
             label = l[1]
@@ -111,7 +111,7 @@ def parse_words(raw_data):
                     poses = []
                     synsets = []
                     positions = []
-                    # relations = []
+                    relations = []
                     for idx, node in enumerate(nodes):
                         node = node.split('|')
                         if idx % 2 == 0:
@@ -127,26 +127,29 @@ def parse_words(raw_data):
                                     poses.append(p)
                                     synsets.append(s)
                                     positions.append(min(int(position), constants.MAX_LENGTH))
+                                    relations.append(_w)
                                 else:
                                     w = word.split('\\')[0]
                         else:
                             rel = '(' + node[0].strip().split('_')[-1]
                             # print(node)
-                            words.append(rel)
-                            # relations.append(rel)
+                            # words.append(rel)
+                            relations.append(rel)
 
                     all_words.append(words)
                     all_poses.append(poses)
                     all_synsets.append(synsets)
                     all_positions.append(positions)
-                    # all_relations.append(relations)
+                    all_relations.append(relations)
                     all_labels.append([label])
+                    all_lens.append([doc_len])
                     all_identities.append((pmid, pair))
             else:
                 print(l)
 
     # return all_words, all_poses, all_synsets, all_relations, all_labels, all_identities, all_triples, all_positions
-    return all_words, all_poses, all_synsets, all_labels, all_identities, all_triples, all_lens
+    return all_words, all_poses, all_synsets, all_relations, all_labels, all_identities, all_triples, all_lens, \
+        all_positions
 
 
 class Dataset:
@@ -179,8 +182,8 @@ class Dataset:
     def _process_data(self):
         with open(self.sdp_name, 'r', encoding='utf-8') as f1:
             raw_sdp = f1.readlines()
-        data_words, data_pos, data_synsets, data_y, self.identities, data_triples, data_lens = \
-            parse_words(raw_sdp)
+        data_words, data_pos, data_synsets, data_relations, data_y, self.identities, data_triples, data_lens,\
+            data_positions = parse_words(raw_sdp)
         # data_words, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
         #     raw_data)
 
@@ -218,9 +221,13 @@ class Dataset:
             all_ents.append(pos)
 
         # print(max([len(w) for w in words]))
+        # print(len(all_ents), len(data_lens))
 
-        for t in all_ents:
+        for t, dl, po in zip(all_ents, data_lens, data_positions):
             m0 = []
+            l = float(dl[0])
+            e1 = float(po[0])
+            e2 = float(po[-1])
             for i in range(constants.MAX_LENGTH):
                 m0.append(0.0)
             m0[0] = 1.0
@@ -229,13 +236,13 @@ class Dataset:
             for i in range(constants.MAX_LENGTH):
                 m1.append(0.0)
             for i in range(t[0], t[1] - 1):
-                m1[i] = 1 / (t[1] - 1 - t[0])
+                m1[i] = 1 / (t[1] - 1 - t[0]) * (e1 / l)
             e1_mask.append(m1)
             m2 = []
             for i in range(constants.MAX_LENGTH):
                 m2.append(0.0)
             for i in range(t[2] - 2, t[3] - 3):
-                m2[i] = 1 / ((t[3] - 3) - (t[2] - 2))
+                m2[i] = 1 / ((t[3] - 3) - (t[2] - 2)) * (e2 / l)
             e2_mask.append(m2)
 
         for i in range(len(data_pos)):
@@ -260,10 +267,10 @@ class Dataset:
             lb = constants.ALL_LABELS.index(data_y[i][0])
             labels.append(lb)
 
-        for i in range(len(data_words)):
+        for i in range(len(data_relations)):
             rs = []
-            for r in data_words[i]:
-                if data_words[i].index(r) % 2 == 0:
+            for r in data_relations[i]:
+                if data_relations[i].index(r) % 2 == 0:
                     if r in self.vocab_words:
                         r_id = self.vocab_words[r]
                     else:
@@ -282,6 +289,7 @@ class Dataset:
         self.e1_mask = e1_mask
         self.e2_mask = e2_mask
         self.relations = relations
+        # print(max([len(u) for u in self.relations]))
         self.labels = labels
         self.poses = poses
         self.synsets = synsets
@@ -321,7 +329,7 @@ class Dataset:
         self.words = tf.constant(pad_sequences(word_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
         self.poses = tf.constant(pad_sequences(pos_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
         self.synsets = tf.constant(pad_sequences(synset_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
-        self.relations = tf.constant(pad_sequences(relation_shuffled, maxlen=36, padding='post'))
+        self.relations = tf.constant(pad_sequences(relation_shuffled, maxlen=50, padding='post'))
         num_classes = len(constants.ALL_LABELS)
         self.labels = tf.keras.utils.to_categorical(label_shuffled, num_classes=num_classes)
         # self.labels = tf.constant(label_shuffled, dtype='float32')

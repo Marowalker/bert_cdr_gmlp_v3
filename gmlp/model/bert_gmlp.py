@@ -52,7 +52,7 @@ class BertgMLPModel:
         self.e2_mask = tf.keras.layers.Input(shape=(self.max_length,), dtype='float32')
         self.pos_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
         self.synset_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
-        self.relation_ids = tf.keras.layers.Input(shape=(36,), dtype='int32')
+        self.relation_ids = tf.keras.layers.Input(shape=(50,), dtype='int32')
         self.triple_ids = tf.keras.layers.Input(shape=(2,), dtype='int32')
         # self.position_1_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
         # self.position_2_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
@@ -141,15 +141,15 @@ class BertgMLPModel:
             # inputs=[self.input_ids, self.head_mask, self.e1_mask, self.e2_mask, self.pos_ids, self.synset_ids,
             #         self.triple_ids],
             outputs=self._bert_layer())
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=4e-6)
 
-        self.model.compile(optimizer=self.optimizer, loss='binary_crossentropy', metrics=['accuracy',
-                                                                                          F1Score(num_classes=2,
-                                                                                                  average="weighted",
-                                                                                                  threshold=0.5)])
-        # self.model.compile(optimizer=self.optimizer,
-        #                    loss=tf.keras.losses.BinaryCrossentropy(),
-        #                    metrics=['accuracy', self.f1_score])
+        # self.model.compile(optimizer=self.optimizer, loss='binary_crossentropy', metrics=['accuracy',
+        #                                                                                   F1Score(num_classes=2,
+        #                                                                                           average="weighted",
+        #                                                                                           threshold=0.5)])
+        self.model.compile(optimizer=self.optimizer,
+                           loss=tf.keras.losses.BinaryCrossentropy(),
+                           metrics=['accuracy', self.f1_score])
         print(self.model.summary())
 
     def _train(self, train_data, val_data):
