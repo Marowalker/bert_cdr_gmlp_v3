@@ -236,13 +236,13 @@ class Dataset:
             for i in range(constants.MAX_LENGTH):
                 m1.append(0.0)
             for i in range(t[0], t[1] - 1):
-                m1[i] = 1 / (t[1] - 1 - t[0]) * (e1 / l)
+                m1[i] = 1 / (t[1] - 1 - t[0])
             e1_mask.append(m1)
             m2 = []
             for i in range(constants.MAX_LENGTH):
                 m2.append(0.0)
             for i in range(t[2] - 2, t[3] - 3):
-                m2[i] = 1 / ((t[3] - 3) - (t[2] - 2)) * (e2 / l)
+                m2[i] = 1 / ((t[3] - 3) - (t[2] - 2))
             e2_mask.append(m2)
 
         for i in range(len(data_pos)):
