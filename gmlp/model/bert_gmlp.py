@@ -85,7 +85,7 @@ class BertgMLPModel:
         triple_x = gMLP(dim=constants.TRIPLE_W2V_DIM, depth=self.depth, seq_len=2, activation=tf.nn.swish)(triple_emb)
         # position_x = gMLP(dim=50, depth=self.depth, seq_len=self.max_length, activation=tf.nn.swish)(
         #     position_emb)
-        relation_x = gMLP(dim=16, depth=self.depth, seq_len=36, activation=tf.nn.swish)(
+        relation_x = gMLP(dim=16, depth=self.depth, seq_len=50, activation=tf.nn.swish)(
             relation_emb)
 
         head_x = mat_mul(word_x, self.head_mask)
