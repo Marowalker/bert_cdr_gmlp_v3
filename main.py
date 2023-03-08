@@ -21,19 +21,22 @@ def main():
         chem_vocab = make_triple_vocab(constants.DATA + 'chemical2id.txt')
         dis_vocab = make_triple_vocab(constants.DATA + 'disease2id.txt')
 
-        train = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.train.txt',
+        train = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.train.txt',
+                        constants.RAW_DATA + 'sdp_data_acentors_full.train.txt',
                         vocab_words=vocab_words,
                         vocab_poses=vocab_poses,
                         vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab)
         pickle.dump(train, open(constants.PICKLE_DATA + 'train.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
         #
-        dev = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt',
+        dev = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.dev.txt',
+                        constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt',
                       vocab_words=vocab_words,
                       vocab_poses=vocab_poses,
                       vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
         pickle.dump(dev, open(constants.PICKLE_DATA + 'dev.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
-        test = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.test.txt',
+        test = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
+                        constants.RAW_DATA + 'sdp_data_acentors_full.test.txt',
                        vocab_words=vocab_words,
                        vocab_poses=vocab_poses,
                        vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
