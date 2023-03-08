@@ -14,7 +14,8 @@ parser.add_argument('-e', help='Number of epochs', type=int, default=5)
 parser.add_argument('-p', help='Patience of early stop (0 for ignore early stop)', type=int, default=1)
 parser.add_argument('-config', help='CNN configurations default \'1:128\'', type=str, default='2:32')
 # default max length: for cid: 256; for chemprot: 318
-parser.add_argument('-len', help='Max sentence or document length', type=int, default=135)
+# for full abstract: 730
+parser.add_argument('-len', help='Max sentence or document length', type=int, default=730)
 
 
 opt = parser.parse_args()
@@ -66,7 +67,7 @@ with tf.device("/GPU:0"):
     encoder = TFBertModel.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext", from_pt=True)
     tokenizer = BertTokenizer.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext")
 
-    ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>", "$ROOT$"]
+    ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
 
     tokenizer.add_special_tokens({"additional_special_tokens": ADDITIONAL_SPECIAL_TOKENS})
 

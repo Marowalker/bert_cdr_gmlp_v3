@@ -25,22 +25,25 @@ with open(constants.RAW_DATA + 'sdp_data_acentors_full.train.txt') as f:
 #     print(po, le)
 
 
-train = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.train.txt',
+train = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.train.txt',
+                constants.RAW_DATA + 'sdp_data_acentors_full.train.txt',
                 vocab_words=vocab_words,
                 vocab_poses=vocab_poses,
                 vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab)
 # pickle.dump(train, open(constants.PICKLE_DATA + 'train.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 #
-dev = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt',
+dev = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.dev.txt',
+              constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt',
               vocab_words=vocab_words,
               vocab_poses=vocab_poses,
-              vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab,)
+              vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
 # pickle.dump(dev, open(constants.PICKLE_DATA + 'dev.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
-test = Dataset(constants.RAW_DATA + 'sdp_data_acentors_full.test.txt',
+test = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
+               constants.RAW_DATA + 'sdp_data_acentors_full.test.txt',
                vocab_words=vocab_words,
                vocab_poses=vocab_poses,
-               vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab,)
+               vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
 # pickle.dump(test, open(constants.PICKLE_DATA + 'test.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
 # Train, Validation Split
@@ -54,16 +57,16 @@ for prop in props:
     train.__dict__[prop].extend(dev.__dict__[prop][:n_sample])
     validation.__dict__[prop] = dev.__dict__[prop][n_sample:]
 
-# len_train = max([len(w) for w in train.words])
-# len_val = max([len(w) for w in validation.words])
-# len_test = max([len(w) for w in test.words])
+len_train = max([len(w) for w in train.words])
+len_val = max([len(w) for w in validation.words])
+len_test = max([len(w) for w in test.words])
+
+print(max([len_train, len_val, len_test]))
+
+# train.get_padded_data()
+# validation.get_padded_data()
 #
-# print(max([len_train, len_val, len_test]))
-
-train.get_padded_data()
-validation.get_padded_data()
-
-print(train.e1_mask)
+# print(train.e1_mask)
 
 # wn_emb = get_trimmed_w2v_vectors('data/w2v_model/wordnet_embeddings.npz')
 #
@@ -79,4 +82,3 @@ print(train.e1_mask)
 #
 # concated = tf.concat([chem_emb, dis_emb], axis=0)
 # print(concated)
-
