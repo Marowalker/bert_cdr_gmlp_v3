@@ -37,7 +37,7 @@ class BertCLModel:
                                                           patience=constants.PATIENCE)
 
         model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-            filepath=TRAINED_MODELS,
+            filepath=self.trained_models,
             save_weights_only=True,
             monitor='val_loss',
             mode='min',
