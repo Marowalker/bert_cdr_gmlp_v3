@@ -79,3 +79,4 @@ with tf.device("/GPU:0"):
 
 TRAINED_MODELS = DATA + 'trained_models/'
 MODEL_NAMES = TRAINED_MODELS + '{}_{}'
+TRAINED_CL = DATA + 'trained_cl_models/'

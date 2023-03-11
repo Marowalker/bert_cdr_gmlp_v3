@@ -50,8 +50,8 @@ class BertgMLPModel:
         self.head_mask = tf.keras.layers.Input(shape=(self.max_length,), dtype='float32')
         self.e1_mask = tf.keras.layers.Input(shape=(self.max_length,), dtype='float32')
         self.e2_mask = tf.keras.layers.Input(shape=(self.max_length,), dtype='float32')
-        self.pos_ids = tf.keras.layers.Input(shape=(50,), dtype='int32')
-        self.synset_ids = tf.keras.layers.Input(shape=(50,), dtype='int32')
+        self.pos_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
+        self.synset_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
         self.relation_ids = tf.keras.layers.Input(shape=(50,), dtype='int32')
         self.triple_ids = tf.keras.layers.Input(shape=(2,), dtype='int32')
         # self.position_1_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
@@ -80,8 +80,8 @@ class BertgMLPModel:
 
         word_x = gMLP(dim=constants.INPUT_W2V_DIM, depth=self.depth, seq_len=self.max_length,
                       activation=tf.nn.swish)(emb)
-        pos_x = gMLP(dim=6, depth=self.depth, seq_len=50, activation=tf.nn.swish)(pos_emb)
-        synset_x = gMLP(dim=18, depth=self.depth, seq_len=50, activation=tf.nn.swish)(synset_emb)
+        pos_x = gMLP(dim=6, depth=self.depth, seq_len=self.max_length, activation=tf.nn.swish)(pos_emb)
+        synset_x = gMLP(dim=18, depth=self.depth, seq_len=self.max_length, activation=tf.nn.swish)(synset_emb)
         triple_x = gMLP(dim=constants.TRIPLE_W2V_DIM, depth=self.depth, seq_len=2, activation=tf.nn.swish)(triple_emb)
         # position_x = gMLP(dim=50, depth=self.depth, seq_len=self.max_length, activation=tf.nn.swish)(
         #     position_emb)

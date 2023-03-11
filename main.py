@@ -1,10 +1,11 @@
-from dataset import Dataset
+from dataset import Dataset, CLDataset
 import constants
 from data_utils import make_triple_vocab, load_vocab, get_trimmed_w2v_vectors
 import pickle
 import tensorflow as tf
 from evaluate.bc5 import evaluate_bc5
 from gmlp.model.bert_gmlp import BertgMLPModel
+from gmlp.model.bert_cl import BertCLModel
 import numpy as np
 
 
@@ -111,5 +112,50 @@ def main():
     )
 
 
+def main_cl():
+    if constants.IS_REBUILD == 1:
+        print('Build data')
+        train = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.train.txt',
+                          constants.RAW_DATA + 'sdp_data_acentors_full.train.txt')
+        pickle.dump(train, open(constants.PICKLE_DATA + 'cl_train.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
+
+        dev = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.dev.txt',
+                        constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt')
+        pickle.dump(train, open(constants.PICKLE_DATA + 'cl_dev.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
+
+        test = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
+                         constants.RAW_DATA + 'sdp_data_acentors_full.test.txt')
+        pickle.dump(train, open(constants.PICKLE_DATA + 'cl_test.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
+    else:
+        print('Load data')
+        train = pickle.load(open(constants.PICKLE_DATA + 'cl_train.pickle', 'rb'))
+        dev = pickle.load(open(constants.PICKLE_DATA + 'cl_dev.pickle', 'rb'))
+        test = pickle.load(open(constants.PICKLE_DATA + 'cl_test.pickle', 'rb'))
+
+    # Train, Validation Split
+    validation = CLDataset('', '', process_data=None)
+    train_ratio = 0.85
+    n_sample = int(len(dev.words) * (2 * train_ratio - 1))
+    props = ['augments', 'labels']
+
+    for prop in props:
+        train.__dict__[prop].extend(dev.__dict__[prop][:n_sample])
+        validation.__dict__[prop] = dev.__dict__[prop][n_sample:]
+
+    train.get_padded_data()
+    validation.get_padded_data()
+    test.get_padded_data(shuffled=False)
+
+    print("Train shape: ", len(train.labels))
+    print("Test shape: ", len(test.labels))
+    print("Validation shape: ", len(validation.labels))
+
+    with tf.device("/GPU:0"):
+        model = BertCLModel(base_encoder=constants.encoder)
+        model.build(train, validation)
+        print(model.get_emeddings(test_data=test.augments))
+
+
 if __name__ == '__main__':
-    main()
+    # main()
+    main_cl()

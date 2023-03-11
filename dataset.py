@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 from nltk.corpus import wordnet as wn
 import constants
@@ -22,6 +24,39 @@ def clean_lines(lines):
             if '-1' not in pair:
                 cleaned_lines.append(line)
     return cleaned_lines
+
+
+def get_wordnet_pos(treebank_tag):
+    """
+    return WORDNET POS compliance to WORDENT lemmatization (a,n,r,v)
+    """
+    if treebank_tag.startswith('J'):
+        return wn.ADJ
+    elif treebank_tag.startswith('V'):
+        return wn.VERB
+    elif treebank_tag.startswith('N'):
+        return wn.NOUN
+    elif treebank_tag.startswith('R'):
+        return wn.ADV
+    else:
+        # As default pos in lemmatization is Noun
+        return wn.NOUN
+
+
+def hypernym(word, pos):
+    """
+
+    :params word: str:
+    :return:
+    """
+    synonyms = wn.synsets(word, get_wordnet_pos(pos))
+    hypernyms = []
+    for syn in synonyms:
+        hyper = syn.hypernyms()
+        hypernyms += hyper
+    lemmas = [h.lemmas()[0].name() for h in hypernyms]
+
+    return lemmas
 
 
 def _pad_sequences(sequences, pad_tok, max_length):
@@ -243,10 +278,10 @@ class Dataset:
             raw_data = f1.readlines()
         with open(self.sdp_name, 'r') as f1:
             raw_sdp = f1.readlines()
-        data_words_full, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
-            raw_data)
         data_words, data_pos, data_synsets, data_relations, data_y, self.identities, data_triples, data_lens,\
             data_positions = parse_words(raw_sdp)
+        data_words_full, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
+            raw_data)
 
         words = []
         head_mask = []
@@ -260,12 +295,8 @@ class Dataset:
         # max_len_word = 0
 
         for tokens in data_words_full:
-            # tokens[0] = '<e1>' + tokens[0] + '</e1>'
-            # tokens[-1] = '<e2>' + tokens[-1] + '</e2>'
             sdp_sent = ' '.join(tokens)
             token_ids = constants.tokenizer.encode(sdp_sent)
-            # if max_len_word < len(token_ids):
-            #     max_len_word = len(token_ids)
             words.append(token_ids)
 
             e1_ids, e2_ids, e1_ide, e2_ide = None, None, None, None
@@ -280,9 +311,6 @@ class Dataset:
                     e2_ide = i
             pos = [e1_ids, e1_ide, e2_ids, e2_ide]
             all_ents.append(pos)
-
-        # print(max([len(w) for w in words]))
-        # print(len(all_ents), len(data_lens))
 
         for t in all_ents:
             m0 = []
@@ -385,8 +413,8 @@ class Dataset:
                 self.synsets, self.relations, self.labels, self.triples
 
         self.words = tf.constant(pad_sequences(word_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
-        self.poses = tf.constant(pad_sequences(pos_shuffled, maxlen=50, padding='post'))
-        self.synsets = tf.constant(pad_sequences(synset_shuffled, maxlen=50, padding='post'))
+        self.poses = tf.constant(pad_sequences(pos_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
+        self.synsets = tf.constant(pad_sequences(synset_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
         self.relations = tf.constant(pad_sequences(relation_shuffled, maxlen=50, padding='post'))
         num_classes = len(constants.ALL_LABELS)
         self.labels = tf.keras.utils.to_categorical(label_shuffled, num_classes=num_classes)
@@ -395,3 +423,67 @@ class Dataset:
         self.head_mask = tf.constant(head_shuffle, dtype='float32')
         self.e1_mask = tf.constant(e1_shuffle, dtype='float32')
         self.e2_mask = tf.constant(e2_shuffle, dtype='float32')
+
+
+class CLDataset:
+    def __init__(self, data_name, sdp_name, process_data=True):
+        self.data_name = data_name
+        self.sdp_name = sdp_name
+
+        if process_data:
+            self._process_data()
+
+    def get_padded_data(self, shuffled=True):
+        self._pad_data(shuffled=shuffled)
+
+    def _process_data(self):
+        with open(self.data_name, 'r') as f1:
+            raw_data = f1.readlines()
+        with open(self.sdp_name, 'r') as f1:
+            raw_sdp = f1.readlines()
+        data_words, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
+            raw_data)
+        data_word_sdp, data_pos_sdp, data_synsets_sdp, data_relations, data_y, self.identities, data_triples, data_lens,\
+            data_positions_sdp = parse_words(raw_sdp)
+
+        all_words = []
+        all_augments = []
+
+        # print(len(data_words), len(data_synsets), len(data_positions_sdp))
+
+        for words, positions, pos in zip(data_words, data_positions_sdp, data_pos):
+            # print(len(words), len(positions), len(synsets))
+            augment_number = random.randint(0, (len(words) - len(positions)) // 2)
+            sent = ' '.join(words)
+            token_ids = constants.tokenizer.encode(sent)
+            all_words.append(token_ids)
+
+            augments = []
+
+            for idx, tok in enumerate(words):
+                if (idx + 1) not in positions and augment_number > 0:
+                    if hypernym(tok, pos[idx]):
+                        new_word = hypernym(tok, pos[idx])[0]
+                    else:
+                        new_word = wn.synset('entity.n.01').lemmas()[0].name()
+                    augments.append(new_word)
+                    augment_number -= 1
+                else:
+                    augments.append(tok)
+
+            a_sent = ' '.join(augments)
+            augment_ids = constants.tokenizer.encode(a_sent)
+            all_augments.append(augment_ids)
+
+        self.labels = all_words
+        self.augments = all_augments
+
+    def _pad_data(self, shuffled=True):
+        if shuffled:
+            word_shuffled, label_shuffled = shuffle(self.augments, self.labels)
+        else:
+            word_shuffled, label_shuffled = self.augments, self.labels
+
+        self.augments = tf.constant(pad_sequences(word_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
+        self.labels = tf.constant(pad_sequences(label_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
+
