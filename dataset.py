@@ -127,9 +127,9 @@ def parse_words(raw_data, cid_only=False):
     doc_len = 0
     for line in raw_data:
         l = line.strip().split()
-        if len(l) == 2:
+        if len(l) == 1:
             pmid = l[0]
-            doc_len = l[1]
+            # doc_len = l[1]
         else:
             pair = l[0]
             label = l[1]
@@ -199,7 +199,7 @@ def parse_sent(raw_data, cid_only=False):
     pmid = ''
     for line in raw_data:
         l = line.strip().split()
-        if len(l) == 2:
+        if len(l) == 1:
             pmid = l[0]
         else:
             pair = l[0]
@@ -279,9 +279,9 @@ class Dataset:
         with open(self.sdp_name, 'r') as f1:
             raw_sdp = f1.readlines()
         data_words, data_pos, data_synsets, data_relations, data_y, self.identities, data_triples, data_lens,\
-            data_positions = parse_words(raw_sdp, cid_only=True)
+            data_positions = parse_words(raw_sdp)
         data_words_full, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
-            raw_data, cid_only=True)
+            raw_data)
 
         words = []
         head_mask = []
@@ -434,7 +434,7 @@ class CLDataset:
             self._process_data()
 
     def get_padded_data(self, shuffled=True):
-        self._pad_data(shuffled=shuffled)
+        return self._pad_data(shuffled=shuffled)
 
     def _process_data(self):
         with open(self.data_name, 'r') as f1:
@@ -442,9 +442,9 @@ class CLDataset:
         with open(self.sdp_name, 'r') as f1:
             raw_sdp = f1.readlines()
         data_words, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
-            raw_data)
+            raw_data, cid_only=True)
         data_word_sdp, data_pos_sdp, data_synsets_sdp, data_relations, data_y, self.identities, data_triples, data_lens,\
-            data_positions_sdp = parse_words(raw_sdp)
+            data_positions_sdp = parse_words(raw_sdp, cid_only=True)
 
         all_words = []
         all_augments = []
@@ -461,7 +461,7 @@ class CLDataset:
             augments = []
 
             for idx, tok in enumerate(words):
-                if (idx + 1) not in positions and augment_number > 0:
+                if idx not in positions and augment_number > 0:
                     if hypernym(tok, pos[idx]):
                         new_word = hypernym(tok, pos[idx])[0]
                     else:
@@ -484,6 +484,12 @@ class CLDataset:
         else:
             word_shuffled, label_shuffled = self.augments, self.labels
 
-        self.augments = tf.constant(pad_sequences(word_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
-        self.labels = tf.constant(pad_sequences(label_shuffled, maxlen=constants.MAX_LENGTH, padding='post'))
+        self.augments = pad_sequences(word_shuffled, maxlen=constants.MAX_LENGTH, padding='post')
+        self.labels = pad_sequences(label_shuffled, maxlen=constants.MAX_LENGTH, padding='post')
+
+        sequence_dict = {
+            'augments': self.augments,
+            'labels': self.labels
+        }
+        return sequence_dict
 

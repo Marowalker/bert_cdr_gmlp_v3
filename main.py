@@ -22,22 +22,22 @@ def main():
         chem_vocab = make_triple_vocab(constants.DATA + 'chemical2id.txt')
         dis_vocab = make_triple_vocab(constants.DATA + 'disease2id.txt')
 
-        train = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.train.txt',
-                        constants.RAW_DATA + 'sdp_data_acentors_full.train.txt',
+        train = Dataset(constants.RAW_DATA + 'sentence_data_acentors.train.txt',
+                        constants.RAW_DATA + 'sdp_data_acentors_bert.train.txt',
                         vocab_words=vocab_words,
                         vocab_poses=vocab_poses,
                         vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab)
         pickle.dump(train, open(constants.PICKLE_DATA + 'train.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
         #
-        dev = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.dev.txt',
-                        constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt',
+        dev = Dataset(constants.RAW_DATA + 'sentence_data_acentors.dev.txt',
+                      constants.RAW_DATA + 'sdp_data_acentors_bert.dev.txt',
                       vocab_words=vocab_words,
                       vocab_poses=vocab_poses,
                       vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
         pickle.dump(dev, open(constants.PICKLE_DATA + 'dev.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
-        test = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
-                        constants.RAW_DATA + 'sdp_data_acentors_full.test.txt',
+        test = Dataset(constants.RAW_DATA + 'sentence_data_acentors.test.txt',
+                       constants.RAW_DATA + 'sdp_data_acentors_bert.test.txt',
                        vocab_words=vocab_words,
                        vocab_poses=vocab_poses,
                        vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
@@ -142,9 +142,9 @@ def main_cl():
         train.__dict__[prop].extend(dev.__dict__[prop][:n_sample])
         validation.__dict__[prop] = dev.__dict__[prop][n_sample:]
 
-    train.get_padded_data()
-    validation.get_padded_data()
-    test.get_padded_data(shuffled=False)
+    data_train = train.get_padded_data()
+    data_val = validation.get_padded_data()
+    data_test = test.get_padded_data(shuffled=False)
 
     print("Train shape: ", len(train.labels))
     print("Test shape: ", len(test.labels))
@@ -152,7 +152,7 @@ def main_cl():
 
     with tf.device("/GPU:0"):
         model = BertCLModel(base_encoder=constants.encoder)
-        model.build(train, validation)
+        model.build(data_train, data_val)
         print(model.get_emeddings(test_data=test.augments))
 
 

@@ -3,6 +3,8 @@ from tensorflow_addons.losses import ContrastiveLoss
 import constants
 from constants import *
 import os
+from utils import Timer, Log
+import numpy as np
 
 
 class BertCLModel:
@@ -33,22 +35,59 @@ class BertCLModel:
         print(self.model.summary())
 
     def _train(self, train_data, val_data):
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min',
-                                                          patience=constants.PATIENCE)
+        best_loss = 100000
+        n_epoch_no_improvement = 0
 
-        model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-            filepath=self.trained_models,
-            save_weights_only=True,
-            monitor='val_loss',
-            mode='min',
-            save_best_only=True)
-        y_train = self.model(train_data.labels)
-        y_val = self.model(val_data.labels)
+        for e in range(constants.EPOCHS):
+            print("\nStart of epoch %d" % (e + 1,))
 
-        self.model.fit(x=train_data.augments,
-                       y=y_train,
-                       validation_data=(val_data.augments, y_val),
-                       batch_size=16, epochs=constants.EPOCHS, callbacks=[early_stopping, model_checkpoint_callback])
+            train_dataset = tf.data.Dataset.from_tensor_slices(train_data)
+            train_dataset = train_dataset.shuffle(buffer_size=1024).batch(16)
+
+            # Iterate over the batches of the dataset.
+            for idx, batch in enumerate(train_dataset):
+                with tf.GradientTape() as tape:
+                    logits = self.model(batch['augments'], training=True)
+                    labels = self.model(batch['labels'])
+
+                    loss_value = ContrastiveLoss(labels, logits)
+
+                    grads = tape.gradient(loss_value, self.model.trainable_weights)
+                    self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
+                    if idx % 500 == 0:
+                        Log.log("Iter {}, Loss: {} ".format(idx, loss_value))
+
+                if constants.EARLY_STOPPING:
+                    total_loss = []
+                    val_dataset = tf.data.Dataset.from_tensor_slices(val_data)
+                    val_dataset = val_dataset.batch(16)
+
+                    for idx, batch in enumerate(val_dataset):
+                        val_logits = self.model(batch['augments'], training=False)
+                        val_labels = self.model(batch['labels'])
+
+                        v_loss = ContrastiveLoss(val_labels, val_logits)
+                        total_loss.append(float(v_loss))
+
+                    val_loss = np.mean(total_loss)
+                    Log.log("Loss at epoch number {}: {}".format(e + 1, val_loss))
+                    print("Previous best loss: ", best_loss)
+
+                    if val_loss < best_loss:
+                        Log.log('Save the model at epoch {}'.format(e + 1))
+                        self.model.save_weights(self.trained_models)
+                        best_loss = val_loss
+                        n_epoch_no_improvement = 0
+
+                    else:
+                        n_epoch_no_improvement += 1
+                        Log.log("Number of epochs with no improvement: {}".format(n_epoch_no_improvement))
+                        if n_epoch_no_improvement >= constants.PATIENCE:
+                            print("Best loss: {}".format(best_loss))
+                            break
+
+                if not constants.EARLY_STOPPING:
+                    self.model.save_weights(self.trained_models)
 
         # self.model.save_weights(TRAINED_MODELS)
 

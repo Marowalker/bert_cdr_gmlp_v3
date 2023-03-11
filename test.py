@@ -83,11 +83,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 # concated = tf.concat([chem_emb, dis_emb], axis=0)
 # print(concated)
 
-train = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.train.txt',
-                  constants.RAW_DATA + 'sdp_data_acentors_full.train.txt')
+train = CLDataset(constants.RAW_DATA + 'sentence_data_acentors.train.txt',
+                  constants.RAW_DATA + 'sdp_data_acentors_bert.train.txt')
 
-dev = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.dev.txt',
-                constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt')
+dev = CLDataset(constants.RAW_DATA + 'sentence_data_acentors.dev.txt',
+                constants.RAW_DATA + 'sdp_data_acentors_bert.dev.txt')
 
 # test = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
 #                  constants.RAW_DATA + 'sdp_data_acentors_full.test.txt')

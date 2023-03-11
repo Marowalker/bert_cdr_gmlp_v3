@@ -15,7 +15,7 @@ parser.add_argument('-p', help='Patience of early stop (0 for ignore early stop)
 parser.add_argument('-config', help='CNN configurations default \'1:128\'', type=str, default='2:32')
 # default max length: for cid: 256; for chemprot: 318
 # for full abstract: 730
-parser.add_argument('-len', help='Max sentence or document length', type=int, default=730)
+parser.add_argument('-len', help='Max sentence or document length', type=int, default=256)
 
 
 opt = parser.parse_args()
