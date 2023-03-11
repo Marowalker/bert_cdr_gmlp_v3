@@ -89,8 +89,8 @@ train = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.train.txt',
 dev = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.dev.txt',
                 constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt')
 
-test = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
-                 constants.RAW_DATA + 'sdp_data_acentors_full.test.txt')
+# test = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
+#                  constants.RAW_DATA + 'sdp_data_acentors_full.test.txt')
 
 validation = CLDataset('', '', process_data=None)
 train_ratio = 0.85
@@ -104,4 +104,5 @@ for prop in props:
 train.get_padded_data()
 validation.get_padded_data()
 
+print(len(train.labels))
 print(cosine_similarity(train.augments, train.labels))

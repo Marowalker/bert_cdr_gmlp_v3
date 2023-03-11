@@ -135,7 +135,7 @@ def main_cl():
     # Train, Validation Split
     validation = CLDataset('', '', process_data=None)
     train_ratio = 0.85
-    n_sample = int(len(dev.words) * (2 * train_ratio - 1))
+    n_sample = int(len(dev.labels) * (2 * train_ratio - 1))
     props = ['augments', 'labels']
 
     for prop in props:

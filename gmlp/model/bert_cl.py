@@ -7,12 +7,12 @@ import os
 
 class BertCLModel:
     def __init__(self, base_encoder):
-        if not os.path.exists(TRAINED_MODELS):
-            os.makedirs(TRAINED_MODELS)
-
         self.encoder = base_encoder
         self.max_length = constants.MAX_LENGTH
         self.trained_models = constants.TRAINED_CL
+
+        if not os.path.exists(self.trained_models):
+            os.makedirs(self.trained_models)
 
     def _add_inputs(self):
         self.input_ids = tf.keras.layers.Input(shape=(self.max_length,), dtype='int32')
@@ -42,10 +42,12 @@ class BertCLModel:
             monitor='val_loss',
             mode='min',
             save_best_only=True)
+        y_train = self.model(train_data.labels)
+        y_val = self.model(val_data.labels)
 
         self.model.fit(x=train_data.augments,
-                       y=train_data.labels,
-                       validation_data=(val_data.augments, val_data.labels),
+                       y=y_train,
+                       validation_data=(val_data.augments, y_val),
                        batch_size=16, epochs=constants.EPOCHS, callbacks=[early_stopping, model_checkpoint_callback])
 
         # self.model.save_weights(TRAINED_MODELS)

@@ -112,7 +112,7 @@ def my_pad_sequences(sequences, pad_tok, max_sent_length, nlevels=1):
     return np.array(sequence_padded), sequence_length
 
 
-def parse_words(raw_data):
+def parse_words(raw_data, cid_only=False):
     raw_data = clean_lines(raw_data)
     all_words = []
     all_poses = []
@@ -133,7 +133,7 @@ def parse_words(raw_data):
         else:
             pair = l[0]
             label = l[1]
-            if label:
+            if (label == 'CID' and cid_only) or (not cid_only):
                 chem, dis = pair.split('_')
                 all_triples.append([chem, dis])
 
@@ -180,14 +180,14 @@ def parse_words(raw_data):
                     all_lens.append([doc_len])
                     all_identities.append((pmid, pair))
             else:
-                print(l)
+                pass
 
     # return all_words, all_poses, all_synsets, all_relations, all_labels, all_identities, all_triples, all_positions
     return all_words, all_poses, all_synsets, all_relations, all_labels, all_identities, all_triples, all_lens, \
         all_positions
 
 
-def parse_sent(raw_data):
+def parse_sent(raw_data, cid_only=False):
     raw_data = clean_lines(raw_data)
     all_words = []
     all_poses = []
@@ -204,7 +204,7 @@ def parse_sent(raw_data):
         else:
             pair = l[0]
             label = l[1]
-            if label:
+            if (label == 'CID' and cid_only) or (not cid_only):
                 chem, dis = pair.split('_')
                 all_triples.append([chem, dis])
 
@@ -240,7 +240,7 @@ def parse_sent(raw_data):
                     all_labels.append([label])
                     all_identities.append((pmid, pair))
             else:
-                print(l)
+                pass
 
     return all_words, all_poses, all_synsets, all_labels, all_identities, all_triples
 
@@ -279,9 +279,9 @@ class Dataset:
         with open(self.sdp_name, 'r') as f1:
             raw_sdp = f1.readlines()
         data_words, data_pos, data_synsets, data_relations, data_y, self.identities, data_triples, data_lens,\
-            data_positions = parse_words(raw_sdp)
+            data_positions = parse_words(raw_sdp, cid_only=True)
         data_words_full, data_pos, data_synsets, data_y, self.identities, data_triples = parse_sent(
-            raw_data)
+            raw_data, cid_only=True)
 
         words = []
         head_mask = []
