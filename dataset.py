@@ -266,7 +266,7 @@ class Dataset:
             self._clean_data()
 
     def get_padded_data(self, shuffled=True):
-        self._pad_data(shuffled=shuffled)
+        return self._pad_data(shuffled=shuffled)
 
     def _clean_data(self):
         del self.vocab_poses

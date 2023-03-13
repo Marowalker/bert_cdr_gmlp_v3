@@ -22,22 +22,22 @@ def main():
         chem_vocab = make_triple_vocab(constants.DATA + 'chemical2id.txt')
         dis_vocab = make_triple_vocab(constants.DATA + 'disease2id.txt')
 
-        train = Dataset(constants.RAW_DATA + 'sentence_data_acentors.train.txt',
-                        constants.RAW_DATA + 'sdp_data_acentors_bert.train.txt',
+        train = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.train.txt',
+                        constants.RAW_DATA + 'sdp_data_acentors_full.train.txt',
                         vocab_words=vocab_words,
                         vocab_poses=vocab_poses,
                         vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab)
         pickle.dump(train, open(constants.PICKLE_DATA + 'train.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
         #
-        dev = Dataset(constants.RAW_DATA + 'sentence_data_acentors.dev.txt',
-                      constants.RAW_DATA + 'sdp_data_acentors_bert.dev.txt',
+        dev = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.dev.txt',
+                      constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt',
                       vocab_words=vocab_words,
                       vocab_poses=vocab_poses,
                       vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
         pickle.dump(dev, open(constants.PICKLE_DATA + 'dev.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
-        test = Dataset(constants.RAW_DATA + 'sentence_data_acentors.test.txt',
-                       constants.RAW_DATA + 'sdp_data_acentors_bert.test.txt',
+        test = Dataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
+                       constants.RAW_DATA + 'sdp_data_acentors_full.test.txt',
                        vocab_words=vocab_words,
                        vocab_poses=vocab_poses,
                        vocab_synset=vocab_synsets, vocab_rels=vocab_rels, vocab_chems=chem_vocab, vocab_dis=dis_vocab, )
@@ -115,16 +115,16 @@ def main():
 def main_cl():
     if constants.IS_REBUILD == 1:
         print('Build data')
-        train = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.train.txt',
-                          constants.RAW_DATA + 'sdp_data_acentors_full.train.txt')
+        train = CLDataset(constants.RAW_DATA + 'sentence_data_acentors.train.txt',
+                          constants.RAW_DATA + 'sdp_data_acentors_bert.train.txt')
         pickle.dump(train, open(constants.PICKLE_DATA + 'cl_train.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
-        dev = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.dev.txt',
-                        constants.RAW_DATA + 'sdp_data_acentors_full.dev.txt')
+        dev = CLDataset(constants.RAW_DATA + 'sentence_data_acentors.dev.txt',
+                        constants.RAW_DATA + 'sdp_data_acentors_bert.dev.txt')
         pickle.dump(train, open(constants.PICKLE_DATA + 'cl_dev.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
 
-        test = CLDataset(constants.RAW_DATA + 'sentence_data_acentors_full.test.txt',
-                         constants.RAW_DATA + 'sdp_data_acentors_full.test.txt')
+        test = CLDataset(constants.RAW_DATA + 'sentence_data_acentors.test.txt',
+                         constants.RAW_DATA + 'sdp_data_acentors_bert.test.txt')
         pickle.dump(train, open(constants.PICKLE_DATA + 'cl_test.pickle', 'wb'), pickle.HIGHEST_PROTOCOL)
     else:
         print('Load data')
@@ -153,7 +153,7 @@ def main_cl():
     with tf.device("/GPU:0"):
         model = BertCLModel(base_encoder=constants.encoder)
         model.build(data_train, data_val)
-        print(model.get_emeddings(test_data=test.augments))
+        print(model.get_emeddings(test_data=test['augments'][:16]))
 
 
 if __name__ == '__main__':

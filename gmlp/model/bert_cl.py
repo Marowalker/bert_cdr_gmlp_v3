@@ -1,10 +1,30 @@
 import tensorflow as tf
-from tensorflow_addons.losses import ContrastiveLoss
+import tensorflow_addons as tfa
 import constants
 from constants import *
 import os
 from utils import Timer, Log
 import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
+
+def contrastive_loss(y_true, y_pred, t=0.1):
+    loss_value = 0
+    for i in range(len(y_true)):
+        z_t = y_true[i]
+        z_p = y_pred[i]
+        cos_pos = tf.math.exp(tf.keras.losses.CosineSimilarity(z_t, z_p).numpy() / t)
+        all_neg = []
+        for j in range(len(y_pred)):
+            if j == i:
+                continue
+            z_n = y_pred[j]
+            cos_neg = tf.math.exp(tf.keras.losses.CosineSimilarity(z_t, z_n).numpy() / t)
+            all_neg.append(cos_neg)
+        batch_loss = tf.math.log(cos_pos / sum(all_neg))
+        loss_value -= batch_loss
+
+    return loss_value
 
 
 class BertCLModel:
@@ -22,17 +42,16 @@ class BertCLModel:
     def _bert_layer(self):
         self.bertoutput = self.encoder(self.input_ids)
         emb = self.bertoutput[0]
-        out = tf.keras.layers.Dense(constants.INPUT_W2V_DIM, activation='softmax')(emb)
+        out = tf.keras.layers.Dense(constants.INPUT_W2V_DIM, activation='relu')(emb)
         return out
 
     def _add_train_ops(self):
         self.model = tf.keras.Model(
             inputs=self.input_ids,
             outputs=self._bert_layer())
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=4e-6)
-        self.model.compile(optimizer=self.optimizer,
-                           loss=ContrastiveLoss())
-        print(self.model.summary())
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5)
+        # self.model.compile(optimizer=self.optimizer, loss=custom_contrastive_loss)
+        # print(self.model.summary())
 
     def _train(self, train_data, val_data):
         best_loss = 100000
@@ -50,44 +69,47 @@ class BertCLModel:
                     logits = self.model(batch['augments'], training=True)
                     labels = self.model(batch['labels'])
 
-                    loss_value = ContrastiveLoss(labels, logits)
+                    loss_value = contrastive_loss(labels.numpy(), logits.numpy())
+                    # loss_value = tf.reduce_mean(loss_value)
 
                     grads = tape.gradient(loss_value, self.model.trainable_weights)
-                    self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
-                    if idx % 500 == 0:
+                    self.optimizer.apply_gradients((grad, var) for (grad, var) in
+                                                   zip(grads, self.model.trainable_variables) if grad is not None)
+                    if idx % 50 == 0:
                         Log.log("Iter {}, Loss: {} ".format(idx, loss_value))
 
-                if constants.EARLY_STOPPING:
-                    total_loss = []
-                    val_dataset = tf.data.Dataset.from_tensor_slices(val_data)
-                    val_dataset = val_dataset.batch(16)
+            if constants.EARLY_STOPPING:
+                total_loss = []
+                val_dataset = tf.data.Dataset.from_tensor_slices(val_data)
+                val_dataset = val_dataset.batch(16)
 
-                    for idx, batch in enumerate(val_dataset):
-                        val_logits = self.model(batch['augments'], training=False)
-                        val_labels = self.model(batch['labels'])
+                for idx, batch in enumerate(val_dataset):
+                    val_logits = self.model(batch['augments'], training=False)
+                    val_labels = self.model(batch['labels'])
 
-                        v_loss = ContrastiveLoss(val_labels, val_logits)
-                        total_loss.append(float(v_loss))
+                    v_loss = contrastive_loss(val_labels.numpy(), val_logits.numpy())
+                    # v_loss = tf.reduce_mean(v_loss)
+                    total_loss.append(float(v_loss))
 
-                    val_loss = np.mean(total_loss)
-                    Log.log("Loss at epoch number {}: {}".format(e + 1, val_loss))
-                    print("Previous best loss: ", best_loss)
+                val_loss = np.mean(total_loss)
+                Log.log("Loss at epoch number {}: {}".format(e + 1, val_loss))
+                print("Previous best loss: ", best_loss)
 
-                    if val_loss < best_loss:
-                        Log.log('Save the model at epoch {}'.format(e + 1))
-                        self.model.save_weights(self.trained_models)
-                        best_loss = val_loss
-                        n_epoch_no_improvement = 0
-
-                    else:
-                        n_epoch_no_improvement += 1
-                        Log.log("Number of epochs with no improvement: {}".format(n_epoch_no_improvement))
-                        if n_epoch_no_improvement >= constants.PATIENCE:
-                            print("Best loss: {}".format(best_loss))
-                            break
-
-                if not constants.EARLY_STOPPING:
+                if val_loss < best_loss:
+                    Log.log('Save the model at epoch {}'.format(e + 1))
                     self.model.save_weights(self.trained_models)
+                    best_loss = val_loss
+                    n_epoch_no_improvement = 0
+
+                else:
+                    n_epoch_no_improvement += 1
+                    Log.log("Number of epochs with no improvement: {}".format(n_epoch_no_improvement))
+                    if n_epoch_no_improvement >= constants.PATIENCE:
+                        print("Best loss: {}".format(best_loss))
+                        break
+
+            if not constants.EARLY_STOPPING:
+                self.model.save_weights(self.trained_models)
 
         # self.model.save_weights(TRAINED_MODELS)
 
@@ -96,15 +118,14 @@ class BertCLModel:
                                   rankdir='TB',
                                   expand_nested=False, dpi=300)
 
-    def build(self, train_data, val_data, training=True):
+    def build(self, train_data=None, val_data=None, training=True):
         with tf.device('/device:GPU:0'):
             self._add_inputs()
             self._add_train_ops()
             if training:
                 self._train(train_data, val_data)
 
-    def get_emeddings(self, test_data, training=None):
+    def get_embeddings(self, test_data, training=None):
         self.model.load_weights(self.trained_models)
-        pred = self.model(test_data, training=training)
+        pred = self.model.predict(test_data)
         return pred
-

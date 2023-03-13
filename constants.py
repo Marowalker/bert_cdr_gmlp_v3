@@ -1,5 +1,5 @@
 import argparse
-from transformers import TFBertModel, BertTokenizer, TFAutoModel, AutoTokenizer
+from transformers import TFBertModel, BertTokenizer, TFAutoModel, AutoTokenizer, BertConfig, TFBertForPreTraining
 from data_utils import load_vocab
 import tensorflow as tf
 
@@ -64,7 +64,9 @@ ALL_SYNSETS = DATA + 'all_hypernyms.txt'
 ALL_DEPENDS = DATA + 'no_dir_depend.txt'
 
 with tf.device("/GPU:0"):
-    encoder = TFBertModel.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext", from_pt=True)
+    config = BertConfig.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext")
+    # encoder = TFBertModel.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext", from_pt=True)
+    encoder = TFBertForPreTraining(config)
     tokenizer = BertTokenizer.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext")
 
     ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
