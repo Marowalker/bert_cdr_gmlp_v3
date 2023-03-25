@@ -9,13 +9,13 @@ UNK = '$UNK$'
 
 parser = argparse.ArgumentParser(description='Multi-region size gMLP with BERT for re')
 parser.add_argument('-i', help='Job identity', type=int, default=0)
-parser.add_argument('-rb', help='Rebuild data', type=int, default=1)
+parser.add_argument('-rb', help='Rebuild data', type=int, default=0)
 parser.add_argument('-e', help='Number of epochs', type=int, default=5)
 parser.add_argument('-p', help='Patience of early stop (0 for ignore early stop)', type=int, default=1)
 parser.add_argument('-config', help='CNN configurations default \'1:128\'', type=str, default='2:32')
 # default max length: for cid: 256; for chemprot: 318
 # for full abstract: 730
-parser.add_argument('-len', help='Max sentence or document length', type=int, default=256)
+parser.add_argument('-len', help='Max sentence or document length', type=int, default=325)
 
 
 opt = parser.parse_args()
@@ -64,10 +64,14 @@ ALL_SYNSETS = DATA + 'all_hypernyms.txt'
 ALL_DEPENDS = DATA + 'no_dir_depend.txt'
 
 with tf.device("/GPU:0"):
-    config = BertConfig.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext")
-    # encoder = TFBertModel.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext", from_pt=True)
-    encoder = TFBertForPreTraining(config)
+    encoder = TFBertModel.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext", from_pt=True)
+    # config = BertConfig.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext")
+    # encoder = TFBertForPreTraining(config)
     tokenizer = BertTokenizer.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext")
+    # encoder = TFBertModel.from_pretrained("allenai/scibert_scivocab_uncased", from_pt=True)
+    # tokenizer = BertTokenizer.from_pretrained("allenai/scibert_scivocab_uncased")
+    # encoder = TFAutoModel.from_pretrained("microsoft/biogpt", from_pt=True)
+    # tokenizer = AutoTokenizer.from_pretrained("microsoft/biogpt")
 
     ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
 

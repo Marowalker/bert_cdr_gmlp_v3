@@ -13,16 +13,23 @@ def contrastive_loss(y_true, y_pred, t=0.1):
     for i in range(len(y_true)):
         z_t = y_true[i]
         z_p = y_pred[i]
-        cos_pos = tf.math.exp(tf.keras.losses.CosineSimilarity(z_t, z_p).numpy() / t)
+        cos_pos = tf.math.exp(tf.keras.losses.CosineSimilarity()(z_t, z_p).numpy() / t)
+        cos_pos_rev = tf.math.exp(tf.keras.losses.CosineSimilarity()(z_p, z_t).numpy() / t)
         all_neg = []
-        for j in range(len(y_pred)):
-            if j == i:
-                continue
-            z_n = y_pred[j]
-            cos_neg = tf.math.exp(tf.keras.losses.CosineSimilarity(z_t, z_n).numpy() / t)
-            all_neg.append(cos_neg)
+        all_neg_rev = []
+        for idx, (z_i, z_k) in enumerate(zip(y_true, y_pred)):
+            cos_neg = tf.math.exp((tf.keras.losses.CosineSimilarity()(z_i, z_k).numpy() / t))
+            cos_neg_rev = tf.math.exp((tf.keras.losses.CosineSimilarity()(z_k, z_i).numpy() / t))
+            if idx == i:
+                all_neg.append(0)
+                all_neg_rev.append(0)
+            else:
+                all_neg.append(cos_neg)
+                all_neg_rev.append(cos_neg_rev)
         batch_loss = tf.math.log(cos_pos / sum(all_neg))
-        loss_value -= batch_loss
+        batch_loss_rev = tf.math.log(cos_pos_rev / sum(all_neg_rev))
+        loss_value = loss_value - batch_loss - batch_loss_rev
+    loss_value /= (2 * float(len(y_true)))
 
     return loss_value
 
@@ -67,7 +74,7 @@ class BertCLModel:
             for idx, batch in enumerate(train_dataset):
                 with tf.GradientTape() as tape:
                     logits = self.model(batch['augments'], training=True)
-                    labels = self.model(batch['labels'])
+                    labels = self.model(batch['labels'], training=True)
 
                     loss_value = contrastive_loss(labels.numpy(), logits.numpy())
                     # loss_value = tf.reduce_mean(loss_value)
@@ -84,8 +91,8 @@ class BertCLModel:
                 val_dataset = val_dataset.batch(16)
 
                 for idx, batch in enumerate(val_dataset):
-                    val_logits = self.model(batch['augments'], training=False)
-                    val_labels = self.model(batch['labels'])
+                    val_logits = self.model(batch['augments'], training=True)
+                    val_labels = self.model(batch['labels'], training=True)
 
                     v_loss = contrastive_loss(val_labels.numpy(), val_logits.numpy())
                     # v_loss = tf.reduce_mean(v_loss)
@@ -127,5 +134,6 @@ class BertCLModel:
 
     def get_embeddings(self, test_data, training=None):
         self.model.load_weights(self.trained_models)
-        pred = self.model.predict(test_data)
+        # pred = self.model.predict(test_data)
+        pred = self.encoder(test_data)[0]
         return pred
