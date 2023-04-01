@@ -6,32 +6,40 @@ import os
 from utils import Timer, Log
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from data_utils import *
 
 
-def contrastive_loss(y_true, y_pred, t=0.1):
-    loss_value = 0
-    for i in range(len(y_true)):
-        z_t = y_true[i]
-        z_p = y_pred[i]
-        cos_pos = tf.math.exp(tf.keras.losses.CosineSimilarity()(z_t, z_p).numpy() / t)
-        cos_pos_rev = tf.math.exp(tf.keras.losses.CosineSimilarity()(z_p, z_t).numpy() / t)
-        all_neg = []
-        all_neg_rev = []
-        for idx, (z_i, z_k) in enumerate(zip(y_true, y_pred)):
-            cos_neg = tf.math.exp((tf.keras.losses.CosineSimilarity()(z_i, z_k).numpy() / t))
-            cos_neg_rev = tf.math.exp((tf.keras.losses.CosineSimilarity()(z_k, z_i).numpy() / t))
-            if idx == i:
-                all_neg.append(0)
-                all_neg_rev.append(0)
-            else:
-                all_neg.append(cos_neg)
-                all_neg_rev.append(cos_neg_rev)
-        batch_loss = tf.math.log(cos_pos / sum(all_neg))
-        batch_loss_rev = tf.math.log(cos_pos_rev / sum(all_neg_rev))
-        loss_value = loss_value - batch_loss - batch_loss_rev
-    loss_value /= (2 * float(len(y_true)))
+def contrastive_loss(y_true, y_pred, batch_size=8, t=0.1):
+    test_1 = y_pred
+    test_2 = y_true
 
-    return loss_value
+    test_1 = tf.nn.l2_normalize(test_1, axis=1)
+    test_2 = tf.nn.l2_normalize(test_2, axis=1)
+
+    dim1_test = dot_simililarity_dim1(test_1, test_2)
+    dim1_test = tf.reshape(dim1_test, (batch_size, 1))
+    dim1_test /= 0.1
+    neg = tf.concat([test_2, test_1], axis=0)
+
+    loss = 0
+
+    cr = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, )
+
+    for t in [test_1, test_2]:
+        dim2_test = dot_simililarity_dim2(t, neg)
+        labels = tf.zeros(batch_size, dtype=tf.int32)
+
+        bool_mask = get_negative_mask(batch_size)
+        dim2_test = tf.boolean_mask(dim2_test, bool_mask)
+
+        dim2_test = tf.reshape(dim2_test, (batch_size, -1))
+        dim2_test /= 0.1
+
+        logits = tf.concat([dim1_test, dim2_test], axis=1)
+        loss += cr(y_pred=logits, y_true=labels)
+
+    loss /= (2 * batch_size)
+    return loss
 
 
 class BertCLModel:
@@ -68,7 +76,7 @@ class BertCLModel:
             print("\nStart of epoch %d" % (e + 1,))
 
             train_dataset = tf.data.Dataset.from_tensor_slices(train_data)
-            train_dataset = train_dataset.shuffle(buffer_size=1024).batch(16)
+            train_dataset = train_dataset.shuffle(buffer_size=1024).batch(8)
 
             # Iterate over the batches of the dataset.
             for idx, batch in enumerate(train_dataset):
@@ -76,25 +84,25 @@ class BertCLModel:
                     logits = self.model(batch['augments'], training=True)
                     labels = self.model(batch['labels'], training=True)
 
-                    loss_value = contrastive_loss(labels.numpy(), logits.numpy())
+                    loss_value = contrastive_loss(labels, logits)
                     # loss_value = tf.reduce_mean(loss_value)
 
                     grads = tape.gradient(loss_value, self.model.trainable_weights)
                     self.optimizer.apply_gradients((grad, var) for (grad, var) in
                                                    zip(grads, self.model.trainable_variables) if grad is not None)
-                    if idx % 50 == 0:
+                    if idx % 500 == 0:
                         Log.log("Iter {}, Loss: {} ".format(idx, loss_value))
 
             if constants.EARLY_STOPPING:
                 total_loss = []
                 val_dataset = tf.data.Dataset.from_tensor_slices(val_data)
-                val_dataset = val_dataset.batch(16)
+                val_dataset = val_dataset.batch(8)
 
                 for idx, batch in enumerate(val_dataset):
                     val_logits = self.model(batch['augments'], training=True)
                     val_labels = self.model(batch['labels'], training=True)
 
-                    v_loss = contrastive_loss(val_labels.numpy(), val_logits.numpy())
+                    v_loss = contrastive_loss(val_labels, val_logits)
                     # v_loss = tf.reduce_mean(v_loss)
                     total_loss.append(float(v_loss))
 
