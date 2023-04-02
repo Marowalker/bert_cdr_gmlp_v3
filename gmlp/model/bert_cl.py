@@ -72,11 +72,14 @@ class BertCLModel:
         best_loss = 100000
         n_epoch_no_improvement = 0
 
+        train_dataset = tf.data.Dataset.from_tensor_slices(train_data)
+        train_dataset = train_dataset.shuffle(buffer_size=1024).batch(8)
+
+        val_dataset = tf.data.Dataset.from_tensor_slices(val_data)
+        val_dataset = val_dataset.batch(8)
+
         for e in range(constants.EPOCHS):
             print("\nStart of epoch %d" % (e + 1,))
-
-            train_dataset = tf.data.Dataset.from_tensor_slices(train_data)
-            train_dataset = train_dataset.shuffle(buffer_size=1024).batch(8)
 
             # Iterate over the batches of the dataset.
             for idx, batch in enumerate(train_dataset):
@@ -84,7 +87,7 @@ class BertCLModel:
                     logits = self.model(batch['augments'], training=True)
                     labels = self.model(batch['labels'], training=True)
 
-                    loss_value = contrastive_loss(labels, logits)
+                    loss_value = contrastive_loss(labels, logits, batch_size=len(batch['augments']))
                     # loss_value = tf.reduce_mean(loss_value)
 
                     grads = tape.gradient(loss_value, self.model.trainable_weights)
@@ -95,14 +98,12 @@ class BertCLModel:
 
             if constants.EARLY_STOPPING:
                 total_loss = []
-                val_dataset = tf.data.Dataset.from_tensor_slices(val_data)
-                val_dataset = val_dataset.batch(8)
 
                 for idx, batch in enumerate(val_dataset):
                     val_logits = self.model(batch['augments'], training=True)
                     val_labels = self.model(batch['labels'], training=True)
 
-                    v_loss = contrastive_loss(val_labels, val_logits)
+                    v_loss = contrastive_loss(val_labels, val_logits, batch_size=len(batch['augments']))
                     # v_loss = tf.reduce_mean(v_loss)
                     total_loss.append(float(v_loss))
 
